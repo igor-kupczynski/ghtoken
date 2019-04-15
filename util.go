@@ -1,4 +1,4 @@
-package token
+package ghtoken
 
 import (
 	"bufio"
