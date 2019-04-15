@@ -1,10 +1,14 @@
-package auth
+// token implements models and APIs for github authorizations APIs
+// see https://developer.github.com/v3/oauth_authorizations/#create-a-new-authorization
+package token
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -15,12 +19,74 @@ const appjson = "application/json"
 
 const otpHeader = "X-GitHub-OTP"
 
+// EnsureToken tries to read the token from disk, if not exists it asks for
+// credentials and stores the token on disk. If the invocation is successful,
+// the caller has the token and the token is persisted on disk in `where`.
+func EnsureToken(where string, name string, scopes []string) (token *Token, err error) {
+	token, err = LoadToken(where)
+	if err == nil && token.Note == name {
+		return
+	}
+
+	token, err = NewToken(name, scopes)
+	if err != nil {
+		return
+	}
+
+	err = SaveToken(token, where)
+	return
+}
+
+// SaveToken saves the token to disk
+func SaveToken(t *Token, where string) error {
+	b, err := json.Marshal(t)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create(where)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// LoadToken loads the token from disk
+func LoadToken(where string) (*Token, error) {
+	file, err := os.Open(where)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var b bytes.Buffer
+	_, err = io.Copy(&b, file)
+	if err != nil {
+		return nil, err
+	}
+
+	var t Token
+	err = json.Unmarshal(b.Bytes(), &t)
+	if err != nil {
+		return nil, err
+	}
+
+	return &t, nil
+}
+
 // NewToken interactively asks for credentials and uses them
 // to acquire github personal access token
-func NewToken() (*Token, error) {
+func NewToken(name string, scopes []string) (*Token, error) {
 	req := &TokenRequest{
-		Scopes: []string{"public_repo"},
-		Note:   "igor-kupczynski/github-cli",
+		Scopes: scopes,
+		Note:   name,
 	}
 
 	fmt.Print("Provide your github credentials. " +

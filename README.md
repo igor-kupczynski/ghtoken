@@ -1,9 +1,9 @@
-# github-cli
+# github-token
 
-An app to solve some of the exercises from gopl.io
+A simple library to get github personal access token
+
+Can request new token from github, store it on disk and load it from disk.
+Additionally, it can ask the user for their login credentials in terminal.
 
 
-# TODO
-
-- Store the token locally
-- Read or create the token
+Demo app can be find in [github-token/main.go](./github-token/main.go).
